@@ -34,6 +34,9 @@ var querystring = require('querystring');
 var prettyBytes = require('pretty-bytes');
 var xml2js = require('xml2js');
 var serverSecrets = require('./lib/server-secrets');
+var Promise = require('promise');
+var AWS = require('aws-sdk');
+AWS.config.setPromisesDependency(Promise);
 if (serverSecrets && serverSecrets.gh_client_id) {
   githubAuth.setRoutes(camp);
 }
@@ -6239,6 +6242,57 @@ cache((data, match, sendBadge, request) => {
       sendBadge(format, badgeData);
     }
   });
+}));
+
+// Amazon Web Services - EC2 Container Service
+camp.route(/^\/aws\/ecs\/([\w\-\_\.]+)\/([\w\-\_\.]+)\.(svg|png|gif|jpg|json)/,
+  cache(function (data, match, sendBadge, request) {
+
+    var cluster = match[1];
+    var service = match[2];
+    var format = match[3];
+
+    var badgeData = getBadgeData('ECS', data);
+
+    var ecs = new AWS.ECS();
+
+    ecs.describeServices({
+      cluster: cluster,
+      services: [ service ]
+    }).promise()
+      .then(function(data) {
+        if (data.failures && data.failures.length > 0) {
+          return Promise.reject({ reason: data.failures[0].reason });
+        }
+        var stat = data.services[0].status.toLowerCase();
+        if (stat != 'active') {
+          return Promise.reject({ reason: stat });
+        }
+        return ecs.describeTaskDefinition({
+          taskDefinition: data.services[0].taskDefinition
+        }).promise();
+      }).then(function(data) {
+        var taskDef = data.taskDefinition;
+        var dockerImage = taskDef.containerDefinitions[0].image;
+        var match = /^[^:]+:(.+)$/.exec(dockerImage)
+        if (match && match[1].length > 0) {
+          var dockerTag = match[1];
+          badgeData.text[1] = dockerTag;
+          badgeData.colorscheme = 'yellow';
+          return sendBadge(format, badgeData);
+        } else {
+          return Promise.reject('no tag');
+        }
+      }).catch(function (err) {
+        if (err && err.reason) {
+          badgeData.colorscheme = 'red';
+          var rightHand = err.reason;
+        } else {
+          var rightHand = 'not available';
+        }
+        badgeData.text[1] = rightHand;
+        return sendBadge(format, badgeData);
+      });
 }));
 
 // Any badge.
