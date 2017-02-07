@@ -6244,8 +6244,8 @@ cache((data, match, sendBadge, request) => {
   });
 }));
 
-// Amazon Web Services - EC2 Container Service
-camp.route(/^\/aws\/ecs\/([\w\-\_\.]+)\/([\w\-\_\.]+)\.(svg|png|gif|jpg|json)/,
+// Amazon Web Services - EC2 Container Service - Running tag
+camp.route(/^\/aws\/ecs\/tag\/([\w\-\_\.]+)\/([\w\-\_\.]+)\.(svg|png|gif|jpg|json)/,
   cache(function (data, match, sendBadge, request) {
 
     var cluster = match[1];
@@ -6262,11 +6262,15 @@ camp.route(/^\/aws\/ecs\/([\w\-\_\.]+)\/([\w\-\_\.]+)\.(svg|png|gif|jpg|json)/,
     }).promise()
       .then(function(data) {
         if (data.failures && data.failures.length > 0) {
-          return Promise.reject({ reason: data.failures[0].reason });
+          return Promise.reject({ reason: data.failures[0].reason.toLowerCase() });
         }
         var stat = data.services[0].status.toLowerCase();
         if (stat != 'active') {
           return Promise.reject({ reason: stat });
+        }
+        var runningCount = data.services[0].deployments[0].runningCount;
+        if (runningCount == 0) {
+          return Promise.reject({ reason: 'not running' });
         }
         return ecs.describeTaskDefinition({
           taskDefinition: data.services[0].taskDefinition
@@ -6285,7 +6289,7 @@ camp.route(/^\/aws\/ecs\/([\w\-\_\.]+)\/([\w\-\_\.]+)\.(svg|png|gif|jpg|json)/,
         }
       }).catch(function (err) {
         if (err && err.reason) {
-          badgeData.colorscheme = 'red';
+          badgeData.colorscheme = 'lightgrey';
           var rightHand = err.reason;
         } else {
           var rightHand = 'not available';
