@@ -6299,6 +6299,23 @@ camp.route(/^\/aws\/ecs\/tag\/([\w\-\_\.]+)\/([\w\-\_\.]+)\.(svg|png|gif|jpg|jso
       });
 }));
 
+// Simacan logo
+camp.route(/^\/(:|simacan\/)(([^-]|--)*?)-(([^-]|--)*)\.(svg|png|gif|jpg)$/,
+cache(function(data, match, sendBadge, request) {
+  var subject = escapeFormat(match[2]);
+  var status = escapeFormat(match[4]);
+  var format = match[6];
+
+  var badgeData = getBadgeData(subject, data);
+
+  // Badge creation.
+  badgeData.text[1] = status;
+  badgeData.logo = logos['simacan'];
+  badgeData.logoWidth = 14;
+  badgeData.colorB = '#0E6881';
+  sendBadge(format, badgeData);
+}));
+
 // Any badge.
 camp.route(/^\/(:|badge\/)(([^-]|--)*?)-(([^-]|--)*)-(([^-]|--)+)\.(svg|png|gif|jpg)$/,
 function(data, match, end, ask) {
