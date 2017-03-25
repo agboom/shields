@@ -36,6 +36,9 @@ var xml2js = require('xml2js');
 var serverSecrets = require('./lib/server-secrets');
 var Promise = require('promise');
 var AWS = require('aws-sdk');
+var moment = require('moment');
+moment().format();
+var Color = require('color');
 AWS.config.setPromisesDependency(Promise);
 if (serverSecrets && serverSecrets.gh_client_id) {
   githubAuth.setRoutes(camp);
@@ -3108,6 +3111,55 @@ cache(function(data, match, sendBadge, request) {
       var vdata = versionColor(version);
       badgeData.text[1] = vdata.version;
       badgeData.colorscheme = prerelease ? 'orange' : 'blue';
+      sendBadge(format, badgeData);
+    } catch(e) {
+      badgeData.text[1] = 'none';
+      sendBadge(format, badgeData);
+    }
+  });
+}));
+
+// GitHub release date integration.
+camp.route(/^\/github\/release-date\/([^\/]+)\/([^\/]+)\.(svg|png|gif|jpg|json)$/,
+cache(function(data, match, sendBadge, request) {
+  var user = match[1];  // eg, qubyte/rubidium
+  var repo = match[2];
+  var format = match[3];
+  var apiUrl = githubApiUrl + '/repos/' + user + '/' + repo + '/releases/latest';
+  var badgeData = getBadgeData('release date', data);
+  if (badgeData.template === 'social') {
+    badgeData.logo = badgeData.logo || logos.github;
+  }
+  githubAuth.request(request, apiUrl, {}, function(err, res, buffer) {
+    if (err != null) {
+      badgeData.text[1] = 'inaccessible';
+      sendBadge(format, badgeData);
+      return;
+    }
+    try {
+      var data = JSON.parse(buffer);
+
+      if (typeof data.created_at !== 'string') throw 'Project has no releases';
+
+      // Pretty print release date
+      var releaseDate = moment(data.created_at);
+      var dateString = releaseDate.calendar(null, {
+        lastDay : '[Yesterday]',
+        sameDay : '[Today]',
+        lastWeek : '[last] dddd',
+        sameElse: 'D MMM YYYY'
+      });
+      // Trim current year from date string
+      var currentYear = moment().year();
+      badgeData.text[1] = dateString.replace(' ' + currentYear, '');
+
+      // Calculate color (older release is lighter/greyer color)
+      const colorB = '#007ec6'; // blue
+      const baseColor = Color(colorB);
+      const weeksSinceRelease = moment().diff(releaseDate, 'weeks');
+      const factor = Math.max(Math.min(weeksSinceRelease / 25, 0.9), 0.1);
+      badgeData.colorB = baseColor.lighten(factor).desaturate(factor / 2).hex();
+
       sendBadge(format, badgeData);
     } catch(e) {
       badgeData.text[1] = 'none';
