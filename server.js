@@ -129,6 +129,11 @@ function cache(f) {
       + '&logo=' + data.logo + '&logoWidth=' + data.logoWidth
       + '&link=' + JSON.stringify(data.link) + '&colorA=' + data.colorA
       + '&colorB=' + data.colorB;
+
+    if (data.invalidate !== undefined) {
+      requestCache.unset(cacheIndex);
+    }
+
     // Should we return the data right away?
     var cached = requestCache.get(cacheIndex);
     var cachedVersionSent = false;
@@ -6351,7 +6356,7 @@ camp.route(/^\/aws\/ecs\/tag\/([\w\-\_\.]+)\/([\w\-\_\.]+)\.(svg|png|gif|jpg|jso
       });
 }));
 
-// Simacan logo
+// Simacan logo badge
 camp.route(/^\/(:|simacan\/)(([^-]|--)*?)-(([^-]|--)*)\.(svg|png|gif|jpg)$/,
 cache(function(data, match, sendBadge, request) {
   var subject = escapeFormat(match[2]);
